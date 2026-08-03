@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: herbchain-postgres
+    environment:
+      POSTGRES_USER: herbchain_user
+      POSTGRES_PASSWORD: herbchain_password
+      POSTGRES_DB: herbchain_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U herbchain_user -d herbchain_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: herbchain-backend
+    environment:
+      DATABASE_URL: postgresql://herbchain_user:herbchain_password@postgres:5432/herbchain_db
+      SECRET_KEY: super-secret-herbchain-ayush-hackathon-key-2025
+      POLYGON_RPC_URL: https://rpc-amoy.polygon.technology
+      CONTRACT_ADDRESS: "0x3A9F56cB34720970C48483B462b48e3E43B33072"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: herbchain-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
