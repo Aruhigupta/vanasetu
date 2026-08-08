@@ -1,18 +1,66 @@
 "use client";
 
-import React, { useState } from "react";
-import { ShieldCheck, Users, Leaf, Database, Cpu, Plus, Search } from "lucide-react";
-
-const MOCK_USERS = [
-  { id: 1, name: "Dr. Rajesh V. Sharma", email: "admin@herbchain.ai", role: "Admin", status: "Active" },
-  { id: 2, name: "Ramesh Gowda", email: "farmer@herbchain.ai", role: "Farmer", status: "Verified" },
-  { id: 3, name: "Sunil Kulkarni", email: "collector@herbchain.ai", role: "Collector", status: "Verified" },
-  { id: 4, name: "Dr. Priya Nambiar", email: "lab@herbchain.ai", role: "Lab Tester", status: "Verified" },
-  { id: 5, name: "Dabur Central Lead", email: "manufacturer@herbchain.ai", role: "Manufacturer", status: "Verified" },
-];
+import React, { useState, useEffect } from "react";
+import { ShieldCheck, Users, Leaf, Cpu, Plus, AlertCircle, RefreshCw, X, ArrowRight } from "lucide-react";
+import { api } from "@/lib/api";
 
 export default function AdminPanelPage() {
-  const [activeTab, setActiveTab] = useState("users");
+  const [activeTab, setActiveTab] = useState("herbs");
+  const [herbs, setHerbs] = useState<any[]>([]);
+  const [loadingHerbs, setLoadingHerbs] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Add Herb Modal State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [commonName, setCommonName] = useState("");
+  const [botanicalName, setBotanicalName] = useState("");
+  const [category, setCategory] = useState("Rasayana (Rejuvenative)");
+  const [compounds, setCompounds] = useState("");
+  const [description, setDescription] = useState("");
+  const [submittingHerb, setSubmittingHerb] = useState(false);
+
+  const fetchHerbs = async () => {
+    setLoadingHerbs(true);
+    setErrorMsg(null);
+    try {
+      const res = await api.getHerbs();
+      setHerbs(Array.isArray(res) ? res : []);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to fetch herbs from Railway API.");
+    } finally {
+      setLoadingHerbs(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHerbs();
+  }, []);
+
+  const handleCreateHerb = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingHerb(true);
+    setErrorMsg(null);
+    try {
+      await api.createHerb({
+        common_name: commonName.trim(),
+        botanical_name: botanicalName.trim(),
+        ayush_category: category,
+        active_compounds: compounds.trim(),
+        description: description.trim() || null
+      });
+
+      setIsAddModalOpen(false);
+      setCommonName("");
+      setBotanicalName("");
+      setCompounds("");
+      setDescription("");
+      fetchHerbs();
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to create new herb species.");
+    } finally {
+      setSubmittingHerb(false);
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
@@ -24,17 +72,11 @@ export default function AdminPanelPage() {
           </div>
           <div>
             <h1 className="text-3xl font-black text-white">System Administrator Portal</h1>
-            <p className="text-xs text-emerald-300/80">Manage users, AYUSH botanical catalog, quality reports, and Polygon audit logs</p>
+            <p className="text-xs text-emerald-300/80">Manage botanical species catalog, AYUSH standards, & system logs via Railway API</p>
           </div>
         </div>
 
         <div className="flex bg-emerald-900/60 p-1 rounded-xl border border-emerald-500/30 text-xs">
-          <button
-            onClick={() => setActiveTab("users")}
-            className={`px-4 py-2 rounded-lg font-bold transition ${activeTab === "users" ? "bg-emerald-500 text-emerald-950" : "text-emerald-300 hover:text-white"}`}
-          >
-            Manage Users
-          </button>
           <button
             onClick={() => setActiveTab("herbs")}
             className={`px-4 py-2 rounded-lg font-bold transition ${activeTab === "herbs" ? "bg-emerald-500 text-emerald-950" : "text-emerald-300 hover:text-white"}`}
@@ -45,81 +87,63 @@ export default function AdminPanelPage() {
             onClick={() => setActiveTab("audit")}
             className={`px-4 py-2 rounded-lg font-bold transition ${activeTab === "audit" ? "bg-emerald-500 text-emerald-950" : "text-emerald-300 hover:text-white"}`}
           >
-            Blockchain Logs
+            Blockchain Audit
           </button>
         </div>
       </div>
 
-      {activeTab === "users" && (
-        <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-emerald-500/30 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Users className="w-5 h-5 text-emerald-400" /> Registered Supply Chain Users
-            </h3>
-            <button className="px-3.5 py-1.5 bg-emerald-500 text-emerald-950 rounded-lg text-xs font-bold flex items-center gap-1.5">
-              <Plus className="w-4 h-4" /> Add User
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-emerald-500/20 text-emerald-400/80 uppercase text-[10px]">
-                  <th className="py-3 px-4">User Name</th>
-                  <th className="py-3 px-4">Email</th>
-                  <th className="py-3 px-4">Role</th>
-                  <th className="py-3 px-4">AYUSH Verification</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-emerald-500/10 text-emerald-200">
-                {MOCK_USERS.map((u) => (
-                  <tr key={u.id} className="hover:bg-emerald-900/30">
-                    <td className="py-3 px-4 font-bold text-white">{u.name}</td>
-                    <td className="py-3 px-4 text-emerald-300">{u.email}</td>
-                    <td className="py-3 px-4 font-semibold text-amber-400">{u.role}</td>
-                    <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-bold rounded">
-                        {u.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {errorMsg && (
+        <div className="p-3.5 bg-red-950/80 border border-red-500/40 rounded-xl text-xs text-red-200 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+          <span>{errorMsg}</span>
         </div>
       )}
 
       {activeTab === "herbs" && (
-        <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-emerald-500/30 space-y-4">
+        <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-emerald-500/30 space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Leaf className="w-5 h-5 text-emerald-400" /> AYUSH Pharmacopoeia Herb Catalog
-            </h3>
-            <button className="px-3.5 py-1.5 bg-emerald-500 text-emerald-950 rounded-lg text-xs font-bold">
-              + Register New Herb
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div className="bg-emerald-900/40 p-4 rounded-2xl border border-emerald-500/30 space-y-2">
-              <span className="font-bold text-white text-sm block">Ashwagandha</span>
-              <span className="text-emerald-400 italic block">Withania somnifera</span>
-              <p className="text-[11px] text-emerald-300/80">Rasayana (Rejuvenative) • Active: Withanolides</p>
+            <div className="flex items-center gap-2">
+              <Leaf className="w-5 h-5 text-emerald-400" />
+              <h3 className="text-lg font-bold text-white">AYUSH Pharmacopoeia Herb Catalog</h3>
             </div>
-
-            <div className="bg-emerald-900/40 p-4 rounded-2xl border border-emerald-500/30 space-y-2">
-              <span className="font-bold text-white text-sm block">Tulsi (Holy Basil)</span>
-              <span className="text-emerald-400 italic block">Ocimum sanctum</span>
-              <p className="text-[11px] text-emerald-300/80">Pranada • Active: Eugenol, Ursolic Acid</p>
-            </div>
-
-            <div className="bg-emerald-900/40 p-4 rounded-2xl border border-emerald-500/30 space-y-2">
-              <span className="font-bold text-white text-sm block">Wild Turmeric (Haridra)</span>
-              <span className="text-emerald-400 italic block">Curcuma longa</span>
-              <p className="text-[11px] text-emerald-300/80">Anti-inflammatory • Active: Curcumin</p>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={fetchHerbs}
+                className="p-2 bg-emerald-900/60 hover:bg-emerald-800 text-emerald-300 rounded-lg text-xs"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md"
+              >
+                <Plus className="w-4 h-4" /> Register New Herb
+              </button>
             </div>
           </div>
+
+          {loadingHerbs ? (
+            <div className="py-12 text-center text-xs text-emerald-300">Fetching live herbs from Railway API...</div>
+          ) : herbs.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              {herbs.map((h: any) => (
+                <div key={h.id} className="bg-emerald-900/40 p-4 rounded-2xl border border-emerald-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white text-sm block">{h.common_name}</span>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-mono">ID #{h.id}</span>
+                  </div>
+                  <span className="text-emerald-400 italic block font-mono">{h.botanical_name}</span>
+                  <p className="text-[11px] text-emerald-300/80">{h.ayush_category} • Active: {h.active_compounds}</p>
+                  {h.description && (
+                    <p className="text-[10px] text-emerald-200/70 line-clamp-2 pt-1 border-t border-emerald-500/20">{h.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-emerald-300/60 italic py-6 text-center">No herbs found in database.</p>
+          )}
         </div>
       )}
 
@@ -129,6 +153,91 @@ export default function AdminPanelPage() {
             <Cpu className="w-5 h-5 text-amber-400" /> Polygon Smart Contract Audit Logs
           </h3>
           <p className="text-xs text-emerald-300/80">100% of state modifications generate cryptographic proof on Polygon Amoy Testnet (Chain ID 80002).</p>
+        </div>
+      )}
+
+      {/* Modal for Registering New Herb */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="bg-emerald-950 border border-emerald-500/40 rounded-3xl max-w-md w-full p-6 relative shadow-2xl space-y-4">
+            <button
+              onClick={() => setIsAddModalOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-full text-emerald-400 hover:bg-emerald-900/60"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-xl font-bold text-white">Register New Botanical Herb</h3>
+
+            <form onSubmit={handleCreateHerb} className="space-y-4 text-xs">
+              <div>
+                <label className="text-emerald-200 block mb-1">Common Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Shatavari"
+                  value={commonName}
+                  onChange={(e) => setCommonName(e.target.value)}
+                  className="w-full p-2.5 bg-emerald-900/60 text-white rounded-xl border border-emerald-500/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-emerald-200 block mb-1">Botanical Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Asparagus racemosus"
+                  value={botanicalName}
+                  onChange={(e) => setBotanicalName(e.target.value)}
+                  className="w-full p-2.5 bg-emerald-900/60 text-white rounded-xl border border-emerald-500/30 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-emerald-200 block mb-1">AYUSH Category</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Balya (Strength-promoting)"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full p-2.5 bg-emerald-900/60 text-white rounded-xl border border-emerald-500/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-emerald-200 block mb-1">Active Compounds</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Shatavarins (I-IV)"
+                  value={compounds}
+                  onChange={(e) => setCompounds(e.target.value)}
+                  className="w-full p-2.5 bg-emerald-900/60 text-white rounded-xl border border-emerald-500/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-emerald-200 block mb-1">Description (Optional)</label>
+                <textarea
+                  rows={2}
+                  placeholder="Herb medicinal description..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full p-2.5 bg-emerald-900/60 text-white rounded-xl border border-emerald-500/30"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submittingHerb}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold rounded-xl flex items-center justify-center gap-2"
+              >
+                {submittingHerb ? "Posting to Railway API..." : "Submit Herb to AYUSH Database"} <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+          </div>
         </div>
       )}
 

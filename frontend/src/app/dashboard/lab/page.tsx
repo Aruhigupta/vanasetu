@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { FileText, ShieldCheck, Upload, CheckCircle2, AlertTriangle, ArrowRight, ExternalLink } from "lucide-react";
+import { FileText, CheckCircle2, ArrowRight, ExternalLink, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 
 export default function LabPanelPage() {
@@ -13,33 +13,28 @@ export default function LabPanelPage() {
   const [metalsPass, setMetalsPass] = useState(true);
   const [pesticidesPass, setPesticidesPass] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [resData, setResData] = useState<any>(null);
 
   const handleLabSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(null);
     try {
-      const res = await api.fetchFromAPI("/lab", {
-        method: "POST",
-        body: JSON.stringify({
-          batch_id: batchId,
-          lab_name: labName,
-          tester_name: testerName,
-          chemical_assay: assay,
-          heavy_metals_pass: metalsPass,
-          pesticides_pass: pesticidesPass,
-          microbial_pass: true,
-          potency_percentage: parseFloat(potency),
-          cert_ipfs_hash: "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG"
-        })
+      const res = await api.addLabReport({
+        batch_id: batchId,
+        lab_name: labName,
+        tester_name: testerName,
+        chemical_assay: assay,
+        heavy_metals_pass: metalsPass,
+        pesticides_pass: pesticidesPass,
+        microbial_pass: true,
+        potency_percentage: parseFloat(potency),
+        cert_ipfs_hash: "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG"
       });
       setResData(res);
-    } catch (e) {
-      setResData({
-        message: "Lab report certified & stored on Polygon Blockchain",
-        status: "PASSED",
-        tx_hash: "0x1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c"
-      });
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to submit lab report to Railway API.");
     } finally {
       setLoading(false);
     }
@@ -63,25 +58,36 @@ export default function LabPanelPage() {
           <div>
             <span className="text-xs font-bold text-emerald-400 uppercase block mb-1">Laboratory Assay Certificate Minted</span>
             <h2 className="text-2xl font-black text-white font-mono">{batchId}</h2>
-            <p className="text-xs text-emerald-300 mt-2 font-mono">Tx Hash: {resData.tx_hash}</p>
+            {resData.tx_hash && (
+              <p className="text-xs text-emerald-300 mt-2 font-mono">Tx Hash: {resData.tx_hash}</p>
+            )}
           </div>
 
           <div className="flex justify-center gap-4">
-            <a
-              href={`https://amoy.polygonscan.com/tx/${resData.tx_hash}`}
-              target="_blank"
-              rel="noreferrer"
-              className="px-6 py-3 bg-amber-500 text-amber-950 font-bold rounded-xl text-xs flex items-center gap-2"
-            >
-              <ExternalLink className="w-4 h-4" /> View Polygon Explorer
-            </a>
+            {resData.tx_hash && (
+              <a
+                href={`https://amoy.polygonscan.com/tx/${resData.tx_hash}`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-6 py-3 bg-amber-500 text-amber-950 font-bold rounded-xl text-xs flex items-center gap-2"
+              >
+                <ExternalLink className="w-4 h-4" /> View Polygon Explorer
+              </a>
+            )}
             <button onClick={() => setResData(null)} className="px-6 py-3 bg-emerald-900 text-emerald-200 border border-emerald-500/30 rounded-xl text-xs font-bold">
               Test Another Batch
             </button>
           </div>
         </div>
       ) : (
-        <div className="glass-panel p-8 rounded-3xl border border-emerald-500/30 shadow-2xl">
+        <div className="glass-panel p-8 rounded-3xl border border-emerald-500/30 shadow-2xl space-y-6">
+          {errorMsg && (
+            <div className="p-3.5 bg-red-950/80 border border-red-500/40 rounded-xl text-xs text-red-200 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
           <form onSubmit={handleLabSubmit} className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               
@@ -171,7 +177,7 @@ export default function LabPanelPage() {
               disabled={loading}
               className="w-full py-4 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-emerald-950 font-bold text-sm rounded-2xl flex items-center justify-center gap-2 shadow-xl"
             >
-              {loading ? "Uploading to IPFS & Blockchain..." : "Issue Certified AYUSH Lab Report & Sign Blockchain"} <ArrowRight className="w-4 h-4" />
+              {loading ? "Uploading to Railway API & Blockchain..." : "Issue Certified AYUSH Lab Report & Sign Blockchain"} <ArrowRight className="w-4 h-4" />
             </button>
           </form>
         </div>

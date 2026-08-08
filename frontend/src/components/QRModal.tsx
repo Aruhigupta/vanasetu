@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { QrCode, Download, Printer, X, Check, ExternalLink } from "lucide-react";
+import { QrCode, X, Check, ExternalLink, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 
 interface QRModalProps {
@@ -13,16 +13,18 @@ interface QRModalProps {
 export default function QRModal({ batchId, isOpen, onClose }: QRModalProps) {
   const [qrData, setQrData] = useState<{ qr_code_image: string; verification_url: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (isOpen && batchId) {
       setLoading(true);
+      setErrorMsg(null);
       api.generateQR(batchId)
         .then((res) => setQrData(res))
-        .catch(() => {
-          // Fallback static URL generator
-          const verification_url = `http://localhost:3000/verify/${batchId}`;
+        .catch((err) => {
+          console.warn("Generating local vector QR fallback:", err.message);
+          const verification_url = `${window.location.origin}/verify/${batchId}`;
           setQrData({
             verification_url,
             qr_code_image: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(verification_url)}`
@@ -44,7 +46,7 @@ export default function QRModal({ batchId, isOpen, onClose }: QRModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-      <div className="bg-emerald-950 border border-emerald-500/40 rounded-3xl max-w-md w-full p-6 text-center relative shadow-2xl">
+      <div className="bg-emerald-950 border border-emerald-500/40 rounded-3xl max-w-md w-full p-6 text-center relative shadow-2xl space-y-4">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 rounded-full text-emerald-400 hover:bg-emerald-900/60"
@@ -52,20 +54,22 @@ export default function QRModal({ batchId, isOpen, onClose }: QRModalProps) {
           <X className="w-5 h-5" />
         </button>
 
-        <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-400/40 mx-auto flex items-center justify-center mb-3">
+        <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-400/40 mx-auto flex items-center justify-center">
           <QrCode className="w-6 h-6 text-emerald-400" />
         </div>
 
-        <h3 className="text-xl font-bold text-white mb-1">Batch QR Code</h3>
-        <p className="text-xs text-emerald-300/80 mb-4 font-mono">ID: {batchId}</p>
+        <div>
+          <h3 className="text-xl font-bold text-white mb-1">Batch QR Code</h3>
+          <p className="text-xs text-emerald-300/80 font-mono">ID: {batchId}</p>
+        </div>
 
         {loading ? (
           <div className="py-12 flex flex-col items-center justify-center">
             <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-xs text-emerald-400 mt-2">Generating Vector QR...</span>
+            <span className="text-xs text-emerald-400 mt-2">Generating Vector QR via API...</span>
           </div>
         ) : (
-          <div className="bg-white p-4 rounded-2xl inline-block shadow-inner mb-4">
+          <div className="bg-white p-4 rounded-2xl inline-block shadow-inner">
             {qrData?.qr_code_image && (
               <img
                 src={qrData.qr_code_image}
@@ -76,11 +80,11 @@ export default function QRModal({ batchId, isOpen, onClose }: QRModalProps) {
           </div>
         )}
 
-        <div className="bg-emerald-900/50 p-3 rounded-xl border border-emerald-500/30 text-xs text-emerald-200 mb-6 flex items-center justify-between">
+        <div className="bg-emerald-900/50 p-3 rounded-xl border border-emerald-500/30 text-xs text-emerald-200 flex items-center justify-between">
           <span className="truncate max-w-[240px] font-mono">{qrData?.verification_url}</span>
           <button
             onClick={copyUrl}
-            className="px-2.5 py-1 bg-emerald-500/30 hover:bg-emerald-500/50 text-emerald-300 rounded font-semibold transition"
+            className="px-2.5 py-1 bg-emerald-500/30 hover:bg-emerald-500/50 text-emerald-300 rounded font-semibold transition shrink-0"
           >
             {copied ? <Check className="w-4 h-4 text-emerald-400" /> : "Copy"}
           </button>
@@ -91,7 +95,7 @@ export default function QRModal({ batchId, isOpen, onClose }: QRModalProps) {
             onClick={() => window.print()}
             className="flex-1 py-2.5 bg-emerald-900 hover:bg-emerald-800 text-emerald-200 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border border-emerald-500/30"
           >
-            <Printer className="w-4 h-4" /> Print Label
+            Print Label
           </button>
           <a
             href={qrData?.verification_url}

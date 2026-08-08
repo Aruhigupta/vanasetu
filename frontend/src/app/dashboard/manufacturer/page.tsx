@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Factory, QrCode, ShieldCheck, CheckCircle2, ArrowRight, Printer } from "lucide-react";
+import { Factory, QrCode, CheckCircle2, ArrowRight, AlertCircle } from "lucide-react";
 import QRModal from "@/components/QRModal";
 import { api } from "@/lib/api";
 
@@ -11,29 +11,24 @@ export default function ManufacturerPanelPage() {
   const [medicine, setMedicine] = useState("Pure Premium Ashwagandha Churna 100g");
   const [ayushLic, setAyushLic] = useState("AYUSH-MFG-LIC-2025-4401");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [mfgResult, setMfgResult] = useState<any>(null);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
   const handleManufacture = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(null);
     try {
-      const res = await api.fetchFromAPI("/manufacturers/batch", {
-        method: "POST",
-        body: JSON.stringify({
-          batch_id: batchId,
-          facility_name: facility,
-          medicine_name: medicine,
-          ayush_lic_no: ayushLic
-        })
+      const res = await api.createManufactureBatch({
+        batch_id: batchId,
+        facility_name: facility,
+        medicine_name: medicine,
+        ayush_lic_no: ayushLic
       });
       setMfgResult(res);
-    } catch (e) {
-      setMfgResult({
-        message: "Final Ayurvedic Medicine Batch packaging completed",
-        batch_id: batchId,
-        tx_hash: "0x5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0e1d2c3b4a5f6e"
-      });
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to process medicine batch on Railway API.");
     } finally {
       setLoading(false);
     }
@@ -57,7 +52,9 @@ export default function ManufacturerPanelPage() {
           <div>
             <span className="text-xs font-bold text-amber-400 uppercase block mb-1">Final Medicine Batch Created & Signed</span>
             <h2 className="text-3xl font-black text-white font-mono">{mfgResult.batch_id}</h2>
-            <p className="text-xs text-emerald-300 mt-2 font-mono">Polygon Tx: {mfgResult.tx_hash}</p>
+            {mfgResult.tx_hash && (
+              <p className="text-xs text-emerald-300 mt-2 font-mono">Polygon Tx: {mfgResult.tx_hash}</p>
+            )}
           </div>
 
           <div className="flex justify-center gap-4">
@@ -73,7 +70,14 @@ export default function ManufacturerPanelPage() {
           </div>
         </div>
       ) : (
-        <div className="glass-panel p-8 rounded-3xl border border-emerald-500/30 shadow-2xl">
+        <div className="glass-panel p-8 rounded-3xl border border-emerald-500/30 shadow-2xl space-y-6">
+          {errorMsg && (
+            <div className="p-3.5 bg-red-950/80 border border-red-500/40 rounded-xl text-xs text-red-200 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
           <form onSubmit={handleManufacture} className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               
@@ -128,7 +132,7 @@ export default function ManufacturerPanelPage() {
               disabled={loading}
               className="w-full py-4 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-emerald-950 font-bold text-sm rounded-2xl flex items-center justify-center gap-2 shadow-xl"
             >
-              {loading ? "Generating QR & Minting Batch..." : "Manufacture Medicine Batch & Mint Package QR"} <ArrowRight className="w-4 h-4" />
+              {loading ? "Processing via Railway API..." : "Manufacture Medicine Batch & Mint Package QR"} <ArrowRight className="w-4 h-4" />
             </button>
           </form>
         </div>

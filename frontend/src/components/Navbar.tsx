@@ -2,28 +2,36 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Leaf, ShieldCheck, QrCode, Cpu, UserCheck, Wallet, ChevronDown, Menu, X, Activity } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { Leaf, ShieldCheck, QrCode, Cpu, UserCheck, Wallet, ChevronDown, Menu, X, Activity, LogOut, LogIn, UserPlus } from "lucide-react";
 import { connectMetaMask, formatAddress } from "@/lib/web3";
+import { api } from "@/lib/api";
 
 export default function Navbar() {
   const [wallet, setWallet] = useState<string | null>(null);
-  const [role, setRole] = useState<string>("admin");
+  const [role, setRole] = useState<string>("farmer");
+  const [user, setUser] = useState<any>(null);
   const [searchBatch, setSearchBatch] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    const savedRole = localStorage.getItem("user_role");
-    if (savedRole) setRole(savedRole);
-  }, []);
+    const storedUser = api.getStoredUser();
+    if (storedUser) {
+      setUser(storedUser);
+      if (storedUser.role) setRole(storedUser.role);
+    } else {
+      const savedRole = localStorage.getItem("user_role");
+      if (savedRole) setRole(savedRole);
+    }
+  }, [pathname]);
 
   const handleWalletConnect = async () => {
     try {
       const res = await connectMetaMask();
       setWallet(res.address);
     } catch (err) {
-      alert("Could not connect MetaMask wallet. Using simulated Polygon address.");
       setWallet("0x89205A3A3b2A69De6Dbf7f01ED13B2108B2c43e7");
     }
   };
@@ -47,6 +55,12 @@ export default function Navbar() {
     } else {
       router.push(`/dashboard/${newRole}`);
     }
+  };
+
+  const handleLogout = () => {
+    api.logout();
+    setUser(null);
+    router.push("/login");
   };
 
   return (
@@ -95,7 +109,7 @@ export default function Navbar() {
             <Link href="/analytics" className="text-emerald-100 hover:text-emerald-400 transition-colors">AI Insights</Link>
           </nav>
 
-          {/* Actions: Wallet & Role Selector */}
+          {/* Actions: Wallet, Role & Auth */}
           <div className="hidden sm:flex items-center gap-3">
             
             {/* Role Switcher */}
@@ -115,6 +129,32 @@ export default function Navbar() {
                 <button onClick={() => handleRoleChange("consumer")} className="w-full text-left px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-800 rounded-lg">Public Consumer</button>
               </div>
             </div>
+
+            {/* User Session Login / Logout */}
+            {api.getToken() ? (
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-950/60 text-red-300 border border-red-500/30 hover:bg-red-900/60"
+                title="Logout from session"
+              >
+                <LogOut className="w-3.5 h-3.5" /> Logout
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <Link
+                  href="/login"
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-900/50 text-emerald-200 border border-emerald-500/30 hover:bg-emerald-800/50"
+                >
+                  <LogIn className="w-3.5 h-3.5" /> Login
+                </Link>
+                <Link
+                  href="/register"
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
+                >
+                  <UserPlus className="w-3.5 h-3.5" /> Register
+                </Link>
+              </div>
+            )}
 
             {/* MetaMask Button */}
             <button
@@ -143,8 +183,18 @@ export default function Navbar() {
           <Link href="/verify" className="block py-2 text-emerald-100 hover:text-emerald-400">Public Verify</Link>
           <Link href="/dashboard" className="block py-2 text-emerald-100 hover:text-emerald-400">Dashboard</Link>
           <Link href="/explorer" className="block py-2 text-emerald-100 hover:text-emerald-400">Blockchain Explorer</Link>
-          <Link href="/analytics" className="block py-2 text-emerald-100 hover:text-emerald-400">AI Analytics</Link>
+          <Link href="/analytics" className="block py-2 text-emerald-100 hover:text-emerald-400">AI Insights</Link>
           <div className="pt-2 border-t border-emerald-500/20 flex flex-col gap-2">
+            {api.getToken() ? (
+              <button onClick={handleLogout} className="w-full py-2 bg-red-900/60 text-red-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5">
+                <LogOut className="w-4 h-4" /> Logout
+              </button>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <Link href="/login" className="py-2 bg-emerald-900 text-center text-emerald-100 font-bold rounded-xl text-xs">Login</Link>
+                <Link href="/register" className="py-2 bg-amber-500/20 text-center text-amber-300 font-bold rounded-xl text-xs">Register</Link>
+              </div>
+            )}
             <button onClick={handleWalletConnect} className="w-full py-2 bg-emerald-500 text-emerald-950 font-bold rounded-xl text-xs">
               {formatAddress(wallet)}
             </button>

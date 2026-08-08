@@ -3,40 +3,55 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Leaf, Lock, Mail, UserCheck, Wallet, ArrowRight } from "lucide-react";
+import { Leaf, Lock, Mail, Wallet, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import { connectMetaMask } from "@/lib/web3";
+import { api } from "@/lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("farmer");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate login API & save session token
-    setTimeout(() => {
-      localStorage.setItem("user_role", role);
-      localStorage.setItem("user_email", email || "user@herbchain.ai");
-      localStorage.setItem("token", "mock_jwt_token_2025");
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const res = await api.login({
+        email: email.trim(),
+        password: password
+      });
+
+      setSuccessMsg("Login successful! Redirecting...");
+      const role = res.user?.role || "admin";
+
+      setTimeout(() => {
+        if (role === "admin") router.push("/dashboard/admin");
+        else if (role === "consumer") router.push("/verify");
+        else router.push(`/dashboard/${role}`);
+      }, 500);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to log in. Please check your credentials.");
+    } finally {
       setLoading(false);
-      if (role === "admin") router.push("/dashboard/admin");
-      else if (role === "consumer") router.push("/verify");
-      else router.push(`/dashboard/${role}`);
-    }, 600);
+    }
   };
 
   const handleMetaMaskLogin = async () => {
     try {
       const res = await connectMetaMask();
-      localStorage.setItem("user_role", role);
-      localStorage.setItem("wallet_addr", res.address || "");
-      if (role === "admin") router.push("/dashboard/admin");
-      else router.push(`/dashboard/${role}`);
-    } catch (e) {
-      alert("MetaMask login connected successfully!");
+      if (res.address) {
+        localStorage.setItem("wallet_addr", res.address);
+        setSuccessMsg(`MetaMask Connected: ${res.address.slice(0, 6)}...${res.address.slice(-4)}`);
+        setTimeout(() => router.push("/dashboard"), 800);
+      }
+    } catch (e: any) {
+      setErrorMsg("MetaMask connection cancelled or failed.");
     }
   };
 
@@ -49,28 +64,25 @@ export default function LoginPage() {
             <Leaf className="w-7 h-7 text-emerald-950" />
           </div>
           <h2 className="text-2xl font-black text-white">Login to HerbChain AI</h2>
-          <p className="text-xs text-emerald-300/80">Access your role-specific AYUSH supply chain portal</p>
+          <p className="text-xs text-emerald-300/80">Access your verified AYUSH supply chain account</p>
         </div>
+
+        {errorMsg && (
+          <div className="p-3.5 bg-red-950/80 border border-red-500/40 rounded-xl text-xs text-red-200 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="p-3.5 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-xs text-emerald-200 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{successMsg}</span>
+          </div>
+        )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           
-          <div>
-            <label className="text-xs text-emerald-200 block mb-1">Select Portal Role</label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full bg-emerald-950 text-white text-xs p-3 rounded-xl border border-emerald-500/30 capitalize focus:outline-none focus:border-emerald-400"
-            >
-              <option value="farmer">Farmer / Wild Collector</option>
-              <option value="collector">Forest Department Collector</option>
-              <option value="lab">AYUSH Analytical Testing Lab</option>
-              <option value="transport">Cold-Chain Transport Agency</option>
-              <option value="manufacturer">Ayurvedic Pharma Manufacturer</option>
-              <option value="admin">System Administrator</option>
-              <option value="consumer">Public Consumer</option>
-            </select>
-          </div>
-
           <div>
             <label className="text-xs text-emerald-200 block mb-1">Email Address</label>
             <div className="relative">
@@ -106,7 +118,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-emerald-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
           >
-            {loading ? "Authenticating..." : "Login to Portal"} <ArrowRight className="w-4 h-4" />
+            {loading ? "Authenticating with Railway API..." : "Login to Portal"} <ArrowRight className="w-4 h-4" />
           </button>
 
         </form>
@@ -118,6 +130,7 @@ export default function LoginPage() {
 
         <button
           onClick={handleMetaMaskLogin}
+          type="button"
           className="w-full py-3 bg-emerald-900 hover:bg-emerald-800 text-emerald-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-emerald-500/30"
         >
           <Wallet className="w-4 h-4 text-emerald-400" /> Connect MetaMask Wallet

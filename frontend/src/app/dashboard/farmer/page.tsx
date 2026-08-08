@@ -1,47 +1,55 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Leaf, MapPin, Upload, Sparkles, CheckCircle2, QrCode, ArrowRight, ShieldCheck } from "lucide-react";
+import { Leaf, MapPin, Upload, Sparkles, CheckCircle2, QrCode, ArrowRight, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 
 export default function FarmerPanelPage() {
-  const [herbId, setHerbId] = useState(1);
+  const [herbs, setHerbs] = useState<any[]>([]);
+  const [herbId, setHerbId] = useState<number>(1);
   const [quantity, setQuantity] = useState("250");
   const [moisture, setMoisture] = useState("6.8");
   const [gps, setGps] = useState("11.6854° N, 76.1320° E");
   const [address, setAddress] = useState("Wayanad Bio-Organic Farm #4, Kerala");
   const [imageHash, setImageHash] = useState("QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco");
   const [loading, setLoading] = useState(false);
+  const [fetchingHerbs, setFetchingHerbs] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [createdBatch, setCreatedBatch] = useState<any>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    setFetchingHerbs(true);
+    api.getHerbs()
+      .then((res) => {
+        if (Array.isArray(res) && res.length > 0) {
+          setHerbs(res);
+          setHerbId(res[0].id);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not fetch herbs list:", err.message);
+      })
+      .finally(() => setFetchingHerbs(false));
+  }, []);
 
   const handleCreateHarvest = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(null);
     try {
-      const res = await api.fetchFromAPI("/collections", {
-        method: "POST",
-        body: JSON.stringify({
-          herb_id: Number(herbId),
-          quantity_kg: parseFloat(quantity),
-          gps_coordinates: gps,
-          location_address: address,
-          moisture_pct: parseFloat(moisture),
-          image_ipfs_hash: imageHash
-        })
+      const res = await api.createCollection({
+        herb_id: Number(herbId),
+        quantity_kg: parseFloat(quantity),
+        gps_coordinates: gps,
+        location_address: address,
+        moisture_pct: parseFloat(moisture),
+        image_ipfs_hash: imageHash
       });
       setCreatedBatch(res);
-    } catch (e) {
-      // Fallback generator
-      const randomBatch = `HCB-2025-${Math.floor(1000 + Math.random() * 9000)}`;
-      setCreatedBatch({
-        batch_id: randomBatch,
-        herb_id: herbId,
-        quantity_kg: quantity,
-        ai_authenticity_score: 98.8,
-        status: "COLLECTED"
-      });
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to create harvest collection batch.");
     } finally {
       setLoading(false);
     }
@@ -88,25 +96,46 @@ export default function FarmerPanelPage() {
           </div>
         </div>
       ) : (
-        <div className="glass-panel p-8 rounded-3xl border border-emerald-500/30 shadow-2xl">
+        <div className="glass-panel p-8 rounded-3xl border border-emerald-500/30 shadow-2xl space-y-6">
+          {errorMsg && (
+            <div className="p-3.5 bg-red-950/80 border border-red-500/40 rounded-xl text-xs text-red-200 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
           <form onSubmit={handleCreateHarvest} className="space-y-6">
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               
               <div>
                 <label className="text-xs font-bold text-emerald-300 block mb-2">Select Botanical Herb Specimen</label>
-                <select
-                  value={herbId}
-                  onChange={(e) => setHerbId(Number(e.target.value))}
-                  className="w-full bg-emerald-950 text-white text-xs p-3 rounded-xl border border-emerald-500/30 focus:outline-none focus:border-emerald-400"
-                >
-                  <option value={1}>Ashwagandha (Withania somnifera)</option>
-                  <option value={2}>Tulsi / Holy Basil (Ocimum sanctum)</option>
-                  <option value={3}>Giloy / Guduchi (Tinospora cordifolia)</option>
-                  <option value={4}>Wild Turmeric (Curcuma longa)</option>
-                  <option value={5}>Shatavari (Asparagus racemosus)</option>
-                  <option value={6}>Brahmi (Bacopa monnieri)</option>
-                </select>
+                {fetchingHerbs ? (
+                  <div className="text-xs text-emerald-300 animate-pulse py-2">Loading herbs from API...</div>
+                ) : (
+                  <select
+                    value={herbId}
+                    onChange={(e) => setHerbId(Number(e.target.value))}
+                    className="w-full bg-emerald-950 text-white text-xs p-3 rounded-xl border border-emerald-500/30 focus:outline-none focus:border-emerald-400"
+                  >
+                    {herbs.length > 0 ? (
+                      herbs.map((h: any) => (
+                        <option key={h.id} value={h.id}>
+                          {h.common_name} ({h.botanical_name})
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value={1}>Ashwagandha (Withania somnifera)</option>
+                        <option value={2}>Tulsi / Holy Basil (Ocimum sanctum)</option>
+                        <option value={3}>Giloy / Guduchi (Tinospora cordifolia)</option>
+                        <option value={4}>Wild Turmeric (Curcuma longa)</option>
+                        <option value={5}>Shatavari (Asparagus racemosus)</option>
+                        <option value={6}>Brahmi (Bacopa monnieri)</option>
+                      </>
+                    )}
+                  </select>
+                )}
               </div>
 
               <div>
@@ -171,7 +200,7 @@ export default function FarmerPanelPage() {
               disabled={loading}
               className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-emerald-950 font-bold text-sm rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20"
             >
-              {loading ? "Generating Smart Contract Record..." : "Register Harvest Batch & Mint Polygon Record"} <ArrowRight className="w-4 h-4" />
+              {loading ? "Broadcasting to Railway API..." : "Register Harvest Batch & Mint Polygon Record"} <ArrowRight className="w-4 h-4" />
             </button>
 
           </form>

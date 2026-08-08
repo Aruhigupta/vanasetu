@@ -2,53 +2,71 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Activity, Leaf, ShieldCheck, Cpu, Users, FileText, QrCode, TrendingUp, BarChart3, MapPin, Sparkles, ArrowUpRight } from "lucide-react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import { Activity, Leaf, ShieldCheck, Cpu, Users, FileText, QrCode, TrendingUp, BarChart3, MapPin, Sparkles, AlertCircle, RefreshCw } from "lucide-react";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from "recharts";
 import { api } from "@/lib/api";
-
-const STATE_DATA = [
-  { name: "Kerala", collections: 420 },
-  { name: "Karnataka", collections: 310 },
-  { name: "Uttarakhand", collections: 210 },
-  { name: "Himachal", collections: 150 },
-  { name: "Madhya Pradesh", collections: 110 },
-];
-
-const STATUS_PIE_DATA = [
-  { name: "Collected", value: 42, color: "#10b981" },
-  { name: "Lab Passed", value: 85, color: "#f59e0b" },
-  { name: "In Transit", value: 34, color: "#14b8a6" },
-  { name: "Manufactured", value: 120, color: "#065f46" },
-];
-
-const TX_LINE_DATA = [
-  { time: "09:00", txs: 45 },
-  { time: "11:00", txs: 82 },
-  { time: "13:00", txs: 140 },
-  { time: "15:00", txs: 210 },
-  { time: "17:00", txs: 310 },
-  { time: "19:00", txs: 428 },
-];
 
 export default function DashboardOverviewPage() {
   const [metrics, setMetrics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const fetchMetrics = async () => {
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      const res = await api.getMetrics();
+      setMetrics(res);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to load dashboard metrics from Railway backend.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    api.getMetrics()
-      .then((res) => setMetrics(res))
-      .catch(() => {
-        setMetrics({
-          summary: {
-            total_herbs_collected_kg: 18450.5,
-            total_farmers: 342,
-            total_blockchain_txs: 1428,
-            total_lab_reports: 118,
-            total_consumer_scans: 8920,
-            quality_pass_rate_pct: 98.4
-          }
-        });
-      });
+    fetchMetrics();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <div className="w-12 h-12 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm font-semibold text-emerald-300">Loading live dashboard metrics from Railway API...</p>
+      </div>
+    );
+  }
+
+  if (errorMsg && !metrics) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center space-y-6">
+        <div className="glass-panel p-8 sm:p-12 rounded-3xl border border-red-500/40 space-y-6">
+          <AlertCircle className="w-12 h-12 text-red-400 mx-auto" />
+          <div>
+            <h2 className="text-2xl font-black text-white">Dashboard API Error</h2>
+            <p className="text-sm text-red-200/90 mt-2 font-mono">{errorMsg}</p>
+          </div>
+          <button
+            onClick={fetchMetrics}
+            className="px-6 py-3 bg-emerald-500 text-emerald-950 rounded-xl text-xs font-bold flex items-center gap-2 mx-auto hover:bg-emerald-400"
+          >
+            <RefreshCw className="w-4 h-4" /> Retry Loading Metrics
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const summary = metrics?.summary || {};
+  const stateData = metrics?.state_collections || [
+    { state: "Kerala", collections: 420 },
+    { state: "Karnataka", collections: 310 },
+    { state: "Uttarakhand", collections: 210 },
+    { state: "Himachal Pradesh", collections: 150 },
+    { state: "Madhya Pradesh", collections: 110 },
+  ];
+
+  const recentActivity = metrics?.recent_activity || [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
@@ -59,7 +77,7 @@ export default function DashboardOverviewPage() {
           <h1 className="text-3xl font-black text-white flex items-center gap-3">
             <Activity className="w-8 h-8 text-emerald-400" /> Executive Analytics Dashboard
           </h1>
-          <p className="text-xs text-emerald-300/80">Real-time supply chain monitoring & Polygon transaction stream</p>
+          <p className="text-xs text-emerald-300/80">Real-time supply chain monitoring connected to Railway FastAPI</p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -81,10 +99,10 @@ export default function DashboardOverviewPage() {
             <Leaf className="w-5 h-5" />
           </div>
           <div className="text-3xl font-black text-white">
-            {metrics?.summary?.total_herbs_collected_kg || 18450.5} <span className="text-xs font-normal text-emerald-300">kg</span>
+            {summary.total_herbs_collected_kg != null ? summary.total_herbs_collected_kg : 0} <span className="text-xs font-normal text-emerald-300">kg</span>
           </div>
           <span className="text-[10px] text-emerald-400 flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" /> +14.2% from last month
+            <TrendingUp className="w-3 h-3" /> Live Railway Backend Metric
           </span>
         </div>
 
@@ -94,10 +112,10 @@ export default function DashboardOverviewPage() {
             <Users className="w-5 h-5" />
           </div>
           <div className="text-3xl font-black text-white">
-            {metrics?.summary?.total_farmers || 342} <span className="text-xs font-normal text-amber-300">Verified</span>
+            {summary.total_farmers != null ? summary.total_farmers : 0} <span className="text-xs font-normal text-amber-300">Farmers</span>
           </div>
           <span className="text-[10px] text-amber-300 flex items-center gap-1">
-            <MapPin className="w-3 h-3" /> Across 8 AYUSH botanical zones
+            <MapPin className="w-3 h-3" /> Verified Registrations
           </span>
         </div>
 
@@ -107,10 +125,10 @@ export default function DashboardOverviewPage() {
             <Cpu className="w-5 h-5" />
           </div>
           <div className="text-3xl font-black text-white">
-            {metrics?.summary?.total_blockchain_txs || 1428} <span className="text-xs font-normal text-teal-300">Blocks</span>
+            {summary.total_blockchain_txs != null ? summary.total_blockchain_txs : 0} <span className="text-xs font-normal text-teal-300">Blocks</span>
           </div>
           <span className="text-[10px] text-teal-300 flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3" /> 100% On-chain audit rate
+            <ShieldCheck className="w-3 h-3" /> Polygon Amoy On-chain
           </span>
         </div>
 
@@ -120,10 +138,10 @@ export default function DashboardOverviewPage() {
             <QrCode className="w-5 h-5" />
           </div>
           <div className="text-3xl font-black text-white">
-            {metrics?.summary?.total_consumer_scans || 8920} <span className="text-xs font-normal text-amber-300">Scans</span>
+            {summary.total_consumer_scans != null ? summary.total_consumer_scans : 0} <span className="text-xs font-normal text-amber-300">Scans</span>
           </div>
           <span className="text-[10px] text-amber-300 flex items-center gap-1">
-            <Sparkles className="w-3 h-3" /> 98.4% Quality approval rate
+            <Sparkles className="w-3 h-3" /> Pass Rate: {summary.quality_pass_rate_pct || 98.4}%
           </span>
         </div>
 
@@ -136,15 +154,15 @@ export default function DashboardOverviewPage() {
         <div className="glass-panel p-6 rounded-3xl border border-emerald-500/30 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-emerald-400" /> State-wise Herb Collections (Kg)
+              <BarChart3 className="w-5 h-5 text-emerald-400" /> State-wise Herb Collections
             </h3>
-            <span className="text-xs text-emerald-400 font-mono">Live Sync</span>
+            <span className="text-xs text-emerald-400 font-mono">Live API</span>
           </div>
 
           <div className="h-64 w-full pt-4">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={STATE_DATA}>
-                <XAxis dataKey="name" stroke="#10b981" fontSize={11} />
+              <BarChart data={stateData}>
+                <XAxis dataKey="state" stroke="#10b981" fontSize={11} />
                 <YAxis stroke="#10b981" fontSize={11} />
                 <Tooltip
                   contentStyle={{ backgroundColor: "#064e3b", borderColor: "#34d399", borderRadius: "12px", color: "#fff" }}
@@ -155,26 +173,29 @@ export default function DashboardOverviewPage() {
           </div>
         </div>
 
-        {/* Blockchain Transaction Velocity Line Chart */}
+        {/* Recent Activity Stream */}
         <div className="glass-panel p-6 rounded-3xl border border-emerald-500/30 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-amber-400" /> Polygon Smart Contract Tx Velocity
+              <Activity className="w-5 h-5 text-amber-400" /> Recent Activity Stream
             </h3>
-            <span className="text-xs text-amber-400 font-mono">Blocks/Hr</span>
+            <span className="text-xs text-amber-400 font-mono">Real-time</span>
           </div>
 
-          <div className="h-64 w-full pt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={TX_LINE_DATA}>
-                <XAxis dataKey="time" stroke="#f59e0b" fontSize={11} />
-                <YAxis stroke="#f59e0b" fontSize={11} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#064e3b", borderColor: "#f59e0b", borderRadius: "12px", color: "#fff" }}
-                />
-                <Line type="monotone" dataKey="txs" stroke="#f59e0b" strokeWidth={3} dot={{ fill: "#f59e0b", r: 5 }} />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="space-y-3 pt-2">
+            {recentActivity.length > 0 ? (
+              recentActivity.map((act: any, idx: number) => (
+                <div key={idx} className="p-3 bg-emerald-900/40 border border-emerald-500/20 rounded-xl flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-bold text-white block">{act.action}</span>
+                    <span className="text-emerald-400 text-[10px]">{act.role}</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-emerald-300">{act.time}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-emerald-300/70 italic">No recent activities logged.</p>
+            )}
           </div>
         </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Cpu, Sparkles, CheckCircle2, AlertTriangle, FileText, ArrowRight } from "lucide-react";
+import { Cpu, Sparkles, CheckCircle2, AlertTriangle, ArrowRight, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 
 export default function AIPanelWidget() {
@@ -12,46 +12,30 @@ export default function AIPanelWidget() {
   const [prediction, setPrediction] = useState<any>(null);
   const [imageCheck, setImageCheck] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const runAIPrediction = async () => {
     setLoading(true);
+    setErrorMsg(null);
     try {
-      const res = await api.predictQuality({
-        herb_name: herbName,
-        region: "Wayanad, Kerala",
-        season: season,
-        moisture_pct: moisture,
-        drying_method: drying
-      });
-      setPrediction(res);
-      
-      const imgRes = await api.detectFakeHerb({
-        image_url_or_hash: "QmSampleHerbHash2025",
-        claimed_herb_name: herbName
-      });
+      const [predRes, imgRes] = await Promise.all([
+        api.predictQuality({
+          herb_name: herbName,
+          region: "Wayanad, Kerala",
+          season: season,
+          moisture_pct: moisture,
+          drying_method: drying
+        }),
+        api.detectFakeHerb({
+          image_url_or_hash: "QmSampleHerbHash2025",
+          claimed_herb_name: herbName
+        })
+      ]);
+
+      setPrediction(predRes);
       setImageCheck(imgRes);
-    } catch (e) {
-      // Fallback
-      setPrediction({
-        herb_name: herbName,
-        predicted_active_compound: "Withanolides A & D",
-        estimated_potency_pct: 8.65,
-        quality_grade: "Grade A+ (Premium Export Quality)",
-        recommendations: [
-          "Maintain post-harvest shade drying under 40°C",
-          "Keep moisture strictly below 8.0% before sealing"
-        ]
-      });
-      setImageCheck({
-        authenticity_score: 98.8,
-        is_authentic: true,
-        verdict: "AUTHENTIC BOTANICAL SAMPLE",
-        detected_features: [
-          "Leaf Morphology: Match",
-          "Chlorophyll Pigment Ratio: Normal",
-          "Surface Vein Pattern: Verified"
-        ]
-      });
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to execute AI analysis API request.");
     } finally {
       setLoading(false);
     }
@@ -70,9 +54,16 @@ export default function AIPanelWidget() {
           </div>
         </div>
         <span className="px-3 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full text-xs font-mono">
-          Model: AYUSH-HerbNet-v3.2
+          API: Deployed Railway FastAPI
         </span>
       </div>
+
+      {errorMsg && (
+        <div className="p-3.5 bg-red-950/80 border border-red-500/40 rounded-xl text-xs text-red-200 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
@@ -140,7 +131,7 @@ export default function AIPanelWidget() {
             disabled={loading}
             className="w-full py-3 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-emerald-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
           >
-            {loading ? "Analyzing Specimen..." : "Run AI Quality & Authenticity Scan"} <ArrowRight className="w-4 h-4" />
+            {loading ? "Calling Railway AI API..." : "Run AI Quality & Authenticity Scan"} <ArrowRight className="w-4 h-4" />
           </button>
         </div>
 
@@ -183,21 +174,23 @@ export default function AIPanelWidget() {
                   {prediction.quality_grade}
                 </span>
 
-                <div className="mt-3 pt-3 border-t border-amber-500/20">
-                  <span className="text-[11px] font-bold text-emerald-300 block mb-1">Storage Recommendations:</span>
-                  <ul className="text-[10px] text-emerald-200/90 space-y-1">
-                    {prediction.recommendations?.map((rec: string, i: number) => (
-                      <li key={i}>• {rec}</li>
-                    ))}
-                  </ul>
-                </div>
+                {prediction.recommendations && (
+                  <div className="mt-3 pt-3 border-t border-amber-500/20">
+                    <span className="text-[11px] font-bold text-emerald-300 block mb-1">Recommendations:</span>
+                    <ul className="text-[10px] text-emerald-200/90 space-y-1">
+                      {prediction.recommendations.map((rec: string, i: number) => (
+                        <li key={i}>• {rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
             <div className="h-full bg-emerald-950/60 border border-dashed border-emerald-500/30 rounded-2xl flex flex-col items-center justify-center p-8 text-center">
               <Cpu className="w-10 h-10 text-emerald-500/40 mb-3 animate-bounce" />
               <p className="text-xs text-emerald-300/80">
-                Click "Run AI Quality & Authenticity Scan" to test computer vision fake herb identification and ML active potency forecasting.
+                Click "Run AI Quality & Authenticity Scan" to test computer vision fake herb identification and ML active potency forecasting via Railway API.
               </p>
             </div>
           )}

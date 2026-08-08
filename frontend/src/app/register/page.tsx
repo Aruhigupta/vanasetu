@@ -3,25 +3,44 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Leaf, Lock, Mail, User, ShieldCheck, ArrowRight } from "lucide-react";
+import { Leaf, Lock, Mail, User, Wallet, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
+import { api } from "@/lib/api";
 
 export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("farmer");
+  const [walletAddress, setWalletAddress] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const router = useRouter();
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      localStorage.setItem("user_role", role);
-      localStorage.setItem("user_email", email);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      await api.register({
+        email: email.trim(),
+        password: password,
+        full_name: fullName.trim(),
+        role: role.toLowerCase(),
+        wallet_address: walletAddress.trim() || null
+      });
+
+      setSuccessMsg("Registration successful! Redirecting to login...");
+      setTimeout(() => {
+        router.push("/login");
+      }, 1500);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Registration failed. Email may already be registered.");
+    } finally {
       setLoading(false);
-      router.push(`/dashboard/${role}`);
-    }, 600);
+    }
   };
 
   return (
@@ -35,6 +54,20 @@ export default function RegisterPage() {
           <h2 className="text-2xl font-black text-white">Create HerbChain Account</h2>
           <p className="text-xs text-emerald-300/80">Register as a certified AYUSH supply chain actor</p>
         </div>
+
+        {errorMsg && (
+          <div className="p-3.5 bg-red-950/80 border border-red-500/40 rounded-xl text-xs text-red-200 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="p-3.5 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-xs text-emerald-200 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{successMsg}</span>
+          </div>
+        )}
 
         <form onSubmit={handleRegister} className="space-y-4">
           
@@ -65,6 +98,7 @@ export default function RegisterPage() {
               <option value="lab">AYUSH Testing Laboratory</option>
               <option value="transport">Cold-Chain Logistics Partner</option>
               <option value="manufacturer">Ayurvedic Pharma Manufacturer</option>
+              <option value="admin">System Administrator</option>
             </select>
           </div>
 
@@ -98,12 +132,26 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          <div>
+            <label className="text-xs text-emerald-200 block mb-1">Polygon Wallet Address (Optional)</label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="0x8920...43e7"
+                value={walletAddress}
+                onChange={(e) => setWalletAddress(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 bg-emerald-950 text-white text-xs rounded-xl border border-emerald-500/30 focus:outline-none focus:border-emerald-400 font-mono"
+              />
+              <Wallet className="w-4 h-4 text-emerald-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
             className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-emerald-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
           >
-            {loading ? "Registering..." : "Create Verified Account"} <ArrowRight className="w-4 h-4" />
+            {loading ? "Creating Account..." : "Create Verified Account"} <ArrowRight className="w-4 h-4" />
           </button>
 
         </form>
