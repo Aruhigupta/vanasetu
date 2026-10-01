@@ -1,3 +1,8 @@
-from app_backend.main import app
+import sys
+import os
 
-# Vercel serverless function entrypoint
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+from backend.app.main import app
+
+# Vercel serverless function entrypoint pointing to canonical /backend

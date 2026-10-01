@@ -1,11 +1,13 @@
-// Centralized API Client for HerbChain AI
-// Deployed Railway FastAPI Backend Integration
+// Centralized API Client for HerbChain AI / Vanasetu
 
 const getApiBaseUrl = () => {
+  if (typeof window !== "undefined" && (window as any)._env_?.NEXT_PUBLIC_API_URL) {
+    return (window as any)._env_.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
+  }
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
   }
-  return "https://precious-rejoicing-production-d65d.up.railway.app/api/v1";
+  return "http://localhost:8000/api/v1";
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -77,6 +79,10 @@ export async function fetchFromAPI<T = any>(endpoint: string, options: RequestIn
 
     if (res.status === 401) {
       removeToken();
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+        // Redirect to login if unauthenticated on protected routes
+        // window.location.href = "/login";
+      }
     }
 
     if (!res.ok) {
@@ -97,7 +103,33 @@ export async function fetchFromAPI<T = any>(endpoint: string, options: RequestIn
   }
 }
 
-// Interfaces matching Railway Swagger openapi.json
+// File Upload Wrapper (Multipart Form Data)
+export async function uploadFileToAPI(file: File): Promise<any> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const url = `${API_BASE_URL}/files/upload`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `File upload failed with status ${res.status}`);
+  }
+
+  return await res.json();
+}
+
+// Interfaces
 export interface UserRegisterData {
   email: string;
   password: string;
@@ -130,16 +162,28 @@ export interface CollectionCreateData {
   image_ipfs_hash?: string | null;
 }
 
+export interface WildCollectionCreateData {
+  herb_id: number;
+  forest_region: string;
+  permit_number: string;
+  collection_quantity_kg: number;
+  gps_coordinates: string;
+  photo_cid?: string | null;
+}
+
 export interface LabReportCreateData {
   batch_id: string;
   lab_name: string;
   tester_name: string;
   chemical_assay: string;
-  heavy_metals_pass?: boolean;
-  pesticides_pass?: boolean;
-  microbial_pass?: boolean;
+  heavy_metals_pass: boolean;
+  pesticides_pass: boolean;
+  microbial_pass: boolean;
   potency_percentage: number;
   cert_ipfs_hash?: string | null;
+  hplc_report_cid?: string | null;
+  heavy_metal_report_cid?: string | null;
+  pesticide_report_cid?: string | null;
 }
 
 export interface TransportCreateData {
@@ -158,7 +202,7 @@ export interface ManufactureBatchData {
   facility_name: string;
   medicine_name: string;
   ayush_lic_no: string;
-  final_product_ipfs_hash?: string;
+  final_product_ipfs_hash?: string | null;
 }
 
 export interface AIHerbCheckData {
@@ -174,9 +218,10 @@ export interface AIQualityInputData {
   drying_method: string;
 }
 
-// Centralized API Service Methods
+// Centralized API Methods
 export const api = {
   fetchFromAPI,
+  uploadFileToAPI,
   getToken,
   setToken,
   removeToken,
@@ -194,21 +239,31 @@ export const api = {
     return res;
   },
 
+  getMe: () => fetchFromAPI("/auth/me"),
+
   logout: () => {
     removeToken();
   },
 
-  // Herbs APIs
+  // File Upload API
+  uploadFile: (file: File) => uploadFileToAPI(file),
+
+  // Herbs Catalog APIs
   getHerbs: () => fetchFromAPI("/herbs"),
   getHerbById: (herbId: number) => fetchFromAPI(`/herbs/${herbId}`),
   createHerb: (data: HerbCreateData) =>
     fetchFromAPI("/herbs", { method: "POST", body: JSON.stringify(data) }),
 
-  // Collections APIs
+  // Collections (Farmer) APIs
   getCollections: () => fetchFromAPI("/collections"),
   getCollectionByBatch: (batchId: string) => fetchFromAPI(`/collections/${batchId}`),
-  createCollection: (data: CollectionCreateData, farmerId: number = 1) =>
-    fetchFromAPI(`/collections?farmer_id=${farmerId}`, { method: "POST", body: JSON.stringify(data) }),
+  createCollection: (data: CollectionCreateData) =>
+    fetchFromAPI("/collections", { method: "POST", body: JSON.stringify(data) }),
+
+  // Wild Collections (Collector) APIs
+  getWildCollections: () => fetchFromAPI("/collections/wild"),
+  createWildCollection: (data: WildCollectionCreateData) =>
+    fetchFromAPI("/collections/wild", { method: "POST", body: JSON.stringify(data) }),
 
   // Lab Report APIs
   addLabReport: (data: LabReportCreateData) =>
@@ -223,6 +278,7 @@ export const api = {
   // Manufacturing APIs
   createManufactureBatch: (data: ManufactureBatchData) =>
     fetchFromAPI("/manufacturers/batch", { method: "POST", body: JSON.stringify(data) }),
+  getManufacturedProduct: (finalBatchId: string) => fetchFromAPI(`/manufacturers/batch/${finalBatchId}`),
 
   // Dashboard Metrics API
   getMetrics: () => fetchFromAPI("/dashboard/metrics"),

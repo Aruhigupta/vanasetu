@@ -21,14 +21,13 @@ export default function QRModal({ batchId, isOpen, onClose }: QRModalProps) {
       setLoading(true);
       setErrorMsg(null);
       api.generateQR(batchId)
-        .then((res) => setQrData(res))
+        .then((res) => {
+          setQrData(res);
+        })
         .catch((err) => {
-          console.warn("Generating local vector QR fallback:", err.message);
-          const verification_url = `${window.location.origin}/verify/${batchId}`;
-          setQrData({
-            verification_url,
-            qr_code_image: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(verification_url)}`
-          });
+          console.error("QR Generation Error:", err);
+          setErrorMsg(`Could not generate QR code: ${err.message}`);
+          setQrData(null);
         })
         .finally(() => setLoading(false));
     }
@@ -59,7 +58,7 @@ export default function QRModal({ batchId, isOpen, onClose }: QRModalProps) {
         </div>
 
         <div>
-          <h3 className="text-xl font-bold text-white mb-1">Batch QR Code</h3>
+          <h3 className="text-xl font-bold text-white mb-1">Batch Traceability QR Code</h3>
           <p className="text-xs text-emerald-300/80 font-mono">ID: {batchId}</p>
         </div>
 
@@ -67,6 +66,11 @@ export default function QRModal({ batchId, isOpen, onClose }: QRModalProps) {
           <div className="py-12 flex flex-col items-center justify-center">
             <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
             <span className="text-xs text-emerald-400 mt-2">Generating Vector QR via API...</span>
+          </div>
+        ) : errorMsg ? (
+          <div className="p-4 bg-red-950/80 border border-red-500/40 rounded-2xl text-xs text-red-200 flex items-center gap-2 text-left">
+            <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+            <span>{errorMsg}</span>
           </div>
         ) : (
           <div className="bg-white p-4 rounded-2xl inline-block shadow-inner">
@@ -80,15 +84,17 @@ export default function QRModal({ batchId, isOpen, onClose }: QRModalProps) {
           </div>
         )}
 
-        <div className="bg-emerald-900/50 p-3 rounded-xl border border-emerald-500/30 text-xs text-emerald-200 flex items-center justify-between">
-          <span className="truncate max-w-[240px] font-mono">{qrData?.verification_url}</span>
-          <button
-            onClick={copyUrl}
-            className="px-2.5 py-1 bg-emerald-500/30 hover:bg-emerald-500/50 text-emerald-300 rounded font-semibold transition shrink-0"
-          >
-            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : "Copy"}
-          </button>
-        </div>
+        {qrData?.verification_url && (
+          <div className="bg-emerald-900/50 p-3 rounded-xl border border-emerald-500/30 text-xs text-emerald-200 flex items-center justify-between">
+            <span className="truncate max-w-[240px] font-mono">{qrData.verification_url}</span>
+            <button
+              onClick={copyUrl}
+              className="px-2.5 py-1 bg-emerald-500/30 hover:bg-emerald-500/50 text-emerald-300 rounded font-semibold transition shrink-0"
+            >
+              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : "Copy"}
+            </button>
+          </div>
+        )}
 
         <div className="flex gap-3">
           <button
@@ -97,14 +103,16 @@ export default function QRModal({ batchId, isOpen, onClose }: QRModalProps) {
           >
             Print Label
           </button>
-          <a
-            href={qrData?.verification_url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 rounded-xl text-xs font-bold flex items-center justify-center gap-2"
-          >
-            <ExternalLink className="w-4 h-4" /> Verify Page
-          </a>
+          {qrData?.verification_url && (
+            <a
+              href={qrData.verification_url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 rounded-xl text-xs font-bold flex items-center justify-center gap-2"
+            >
+              <ExternalLink className="w-4 h-4" /> Verify Page
+            </a>
+          )}
         </div>
       </div>
     </div>

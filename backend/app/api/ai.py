@@ -47,7 +47,7 @@ def generate_quality_report(
     return HerbAIService.generate_ayush_quality_report(
         batch_id=batch_id,
         herb_name=herb_name,
-        quality_data={
+        lab_data={
             "chemical_assay": "HPLC Assay: High Withanolide Content (>8.2%). Meets Pharmacopoeial standard."
         }
     )

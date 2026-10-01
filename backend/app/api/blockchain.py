@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.models import BlockchainTransaction
+from app.services.blockchain_service import BlockchainService
 
 router = APIRouter(prefix="/blockchain", tags=["Polygon Explorer & Transactions"])
 
@@ -12,12 +13,8 @@ def get_recent_transactions(limit: int = 20, db: Session = Depends(get_db)):
 
 @router.get("/status")
 def get_blockchain_network_status():
-    return {
-        "network": "Polygon Amoy Testnet (Chain ID 80002)",
-        "contract_address": "0x3A9F56cB34720970C48483B462b48e3E43B33072",
-        "current_block": 45809124,
-        "avg_block_time": "2.1s",
-        "gas_fee_gwei": 32.5,
-        "total_contract_transactions": 1428,
-        "status": "HEALTHY & SYNCHRONIZED"
-    }
+    """
+    Returns live Polygon network status or 'Network status unavailable'.
+    No fake block numbers or gas fees are fabricated.
+    """
+    return BlockchainService.get_network_status()
